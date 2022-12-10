@@ -12,6 +12,7 @@ import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.PluginContainer;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.velocitypowered.api.proxy.server.ServerPing;
 import com.velocitypowered.api.util.Favicon;
 import net.kyori.adventure.text.Component;
@@ -25,6 +26,7 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
@@ -247,7 +249,10 @@ public class Nanamiproxyplugin {
                     // プレーヤーのリストを構築
                     tempPlayerList.clear();
                     for (Player player : players){
-                        tempPlayerList.put(player.getCurrentServer().get().getServerInfo().getName(), player.getUniqueId());
+                        if (player.getCurrentServer().isPresent()){
+                            tempPlayerList.put(player.getCurrentServer().get().getServerInfo().getName(), player.getUniqueId());
+                        }
+
 
                         ServerInfoData data = ServerList.get(player.getVirtualHost().get().getHostName());
                         if (data != null){
@@ -349,24 +354,24 @@ public class Nanamiproxyplugin {
         }
         //System.out.println(hostName);
 
-        int PlayerCount = 0;
         HashMap<UUID, String> nameList = new HashMap<>();
-        List<ServerData> list = api.getServerList(data.getServerName());
+        List<ServerData> list = api.getServerList(data.getProxyServerName());
 
         for (ServerData data1 : list){
-            PlayerCount = PlayerCount + data1.getPlayerList().size();
             nameList.putAll(data1.getPlayerList());
         }
 
         // オンライン人数
-        builder.onlinePlayers(PlayerCount);
 
+        AtomicInteger PlayerCount = new AtomicInteger();
         List<ServerPing.SamplePlayer> players = new ArrayList<>();
         data.getPlayerList().forEach((uuid, name) -> {
             ServerPing.SamplePlayer player = new ServerPing.SamplePlayer(name, uuid);
             players.add(player);
+            PlayerCount.getAndIncrement();
         });
         builder.samplePlayers(players.toArray(ServerPing.SamplePlayer[]::new));
+        builder.onlinePlayers(PlayerCount.get());
         builder.maximumPlayers(data.getServerMaxPlayers());
 
 
